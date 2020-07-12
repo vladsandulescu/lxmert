@@ -115,8 +115,8 @@ class HM:
                     best_valid = valid_auroc_score
                     self.save("BEST")
 
-                log_str += "Epoch %d: Valid AUROC %0.2f\n" % (epoch, valid_auroc_score) + \
-                           "Epoch %d: Best AUROC %0.2f\n" % (epoch, best_valid)
+                log_str += "Epoch %d: Valid Acc - %0.2f, Valid AUROC - %0.2f, Best AUROC - %0.2f\n" % \
+                           (epoch, valid_acc_score, valid_auroc_score, best_valid)
 
             print(log_str, end='')
 
@@ -209,8 +209,7 @@ if __name__ == "__main__":
         if hm.valid_tuple is not None:
             print('Splits in Valid data:', hm.valid_tuple.dataset.splits)
             val_acc, val_auroc = hm.oracle_score(hm.valid_tuple)
-            print("Valid Acc Oracle: %0.2f" % val_acc)
-            print("Valid AUROC Oracle: %0.2f" % val_auroc)
+            print("Valid Acc Oracle - %0.2f, Valid AUROC Oracle - %0.2f" % (val_acc, val_auroc))
         else:
             print("DO NOT USE VALIDATION")
         hm.train(hm.train_tuple, hm.valid_tuple)
