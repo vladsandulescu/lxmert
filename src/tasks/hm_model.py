@@ -12,22 +12,23 @@ MAX_HM_LENGTH = 20
 
 
 class HMModel(nn.Module):
-    def __init__(self, num_labels):
+    def __init__(self):
         super().__init__()
-        
-        # Build LXRT encoder
         self.lxrt_encoder = LXRTEncoder(
             args,
             max_seq_length=MAX_HM_LENGTH
         )
         hid_dim = self.lxrt_encoder.dim
-        
-        # HM labels
+        # self.logit_fc = nn.Sequential(
+        #     nn.Linear(hid_dim, hid_dim * 2),
+        #     GeLU(),
+        #     BertLayerNorm(hid_dim * 2, eps=1e-12),
+        #     nn.Linear(hid_dim * 2, 1)
+        # )
         self.logit_fc = nn.Sequential(
-            nn.Linear(hid_dim, hid_dim * 2),
-            GeLU(),
-            BertLayerNorm(hid_dim * 2, eps=1e-12),
-            nn.Linear(hid_dim * 2, num_labels)
+            nn.Linear(hid_dim, hid_dim),
+            nn.Dropout(0.1),
+            nn.Linear(hid_dim, 1)
         )
         self.logit_fc.apply(self.lxrt_encoder.model.init_bert_weights)
 
@@ -43,6 +44,7 @@ class HMModel(nn.Module):
         """
         x = self.lxrt_encoder(sent, (feat, pos))
         logit = self.logit_fc(x)
+        logit = logit.squeeze(1)
 
         return logit
 

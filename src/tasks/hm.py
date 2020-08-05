@@ -34,7 +34,7 @@ class HM:
     def __init__(self):
         # Datasets
         self.train_tuple = get_data_tuple(
-            args.train, bs=args.batch_size, shuffle=True, drop_last=True
+            args.train, bs=args.batch_size, shuffle=True, drop_last=False
         )
         if args.valid != "":
             self.valid_tuple = get_data_tuple(
@@ -45,7 +45,7 @@ class HM:
             self.valid_tuple = None
         
         # Model
-        self.model = HMModel(self.train_tuple.dataset.num_labels)
+        self.model = HMModel()
 
         # Load pre-trained weights
         if args.load_lxmert is not None:
@@ -82,32 +82,28 @@ class HM:
         for epoch in range(args.epochs):
             imgid2label = {}
             for i, (img_id, feats, boxes, text, target) in iter_wrapper(enumerate(loader)):
-
-                # eye the target for BCE to work
-                target = torch.eye(dset.num_labels)[target]
-
                 self.model.train()
                 self.optim.zero_grad()
 
                 feats, boxes, target = feats.cuda(), boxes.cuda(), target.cuda()
                 logit = self.model(feats, boxes, text)
-                assert logit.dim() == target.dim() == 2
-                loss = self.bce_loss(logit, target)
-                loss = loss * logit.size(1)
+                assert logit.dim() == target.dim() == 1
+                loss = self.bce_loss(logit, target.to(dtype=logit.dtype))
+                loss = loss * logit.size(0)
 
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.model.parameters(), 5.)
                 self.optim.step()
 
-                probs = F.softmax(logit, -1)
-                proba, label = probs[:, 1], probs.argmax(1)
+                probs = torch.sigmoid(logit)
+                proba, label = probs, (probs > .5).to(dtype=torch.int)
                 for id, p, l in zip(img_id,
                                     proba.detach().cpu().numpy(),
                                     label.detach().cpu().numpy()):
                     imgid2label[id] = (p, l)
 
             train_acc, _ = evaluator.evaluate(imgid2label)
-            log_str = "\nEpoch %d: Train Acc - %0.2f\n" % (epoch, train_acc)
+            log_str = "\nEpoch %d: Train Acc - %0.4f\n" % (epoch, train_acc)
 
             if self.valid_tuple is not None:  # Do Validation
                 valid_acc_score, valid_auroc_score = self.evaluate(eval_tuple)
@@ -115,7 +111,7 @@ class HM:
                     best_valid = valid_auroc_score
                     self.save("BEST")
 
-                log_str += "Epoch %d: Valid Acc - %0.2f, Valid AUROC - %0.2f, Best AUROC - %0.2f\n" % \
+                log_str += "Epoch %d: Valid Acc - %0.4f, Valid AUROC - %0.4f, Best AUROC - %0.4f\n" % \
                            (epoch, valid_acc_score, valid_auroc_score, best_valid)
 
             print(log_str, end='')
@@ -142,8 +138,8 @@ class HM:
             with torch.no_grad():
                 feats, boxes = feats.cuda(), boxes.cuda()
                 logit = self.model(feats, boxes, text)
-                probs = F.softmax(logit, -1)
-                proba, label = probs[:, 1], probs.argmax(1)
+                probs = torch.sigmoid(logit)
+                proba, label = probs, (probs > .5).to(dtype=torch.int)
                 for id, p, l in zip(img_id, proba.cpu().numpy(), label.cpu().numpy()):
                     imgid2label[id] = (p, l)
         if dump is not None:
@@ -209,7 +205,7 @@ if __name__ == "__main__":
         if hm.valid_tuple is not None:
             print('Splits in Valid data:', hm.valid_tuple.dataset.splits)
             val_acc, val_auroc = hm.oracle_score(hm.valid_tuple)
-            print("Valid Acc Oracle - %0.2f, Valid AUROC Oracle - %0.2f" % (val_acc, val_auroc))
+            print("Valid Acc Oracle - %0.4f, Valid AUROC Oracle - %0.4f" % (val_acc, val_auroc))
         else:
             print("DO NOT USE VALIDATION")
         hm.train(hm.train_tuple, hm.valid_tuple)
