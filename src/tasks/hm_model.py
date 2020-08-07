@@ -19,16 +19,11 @@ class HMModel(nn.Module):
             max_seq_length=MAX_HM_LENGTH
         )
         hid_dim = self.lxrt_encoder.dim
-        # self.logit_fc = nn.Sequential(
-        #     nn.Linear(hid_dim, hid_dim * 2),
-        #     GeLU(),
-        #     BertLayerNorm(hid_dim * 2, eps=1e-12),
-        #     nn.Linear(hid_dim * 2, 1)
-        # )
         self.logit_fc = nn.Sequential(
-            nn.Linear(hid_dim, hid_dim),
-            nn.Dropout(0.1),
-            nn.Linear(hid_dim, 1)
+            nn.Linear(hid_dim, hid_dim * 2),
+            GeLU(),
+            BertLayerNorm(hid_dim * 2, eps=1e-12),
+            nn.Linear(hid_dim * 2, 1)
         )
         self.logit_fc.apply(self.lxrt_encoder.model.init_bert_weights)
 
