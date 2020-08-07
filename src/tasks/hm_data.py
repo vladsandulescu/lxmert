@@ -176,4 +176,4 @@ class HMEvaluator:
         with open(path, 'w') as f:
             f.write("id,proba,label\n")
             for img_id, (proba, label) in imgid2label.items():
-                f.write(f'{img_id},{proba},{label}\n')
+                f.write(f'{img_id},{str(np.round(proba, 4))},{label}\n')
