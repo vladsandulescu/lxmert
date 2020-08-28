@@ -22,7 +22,7 @@ class HMModel(nn.Module):
         self.logit_fc = nn.Sequential(
             nn.Linear(hid_dim, hid_dim),
             nn.Dropout(0.1),
-            nn.Linear(hid_dim, 1)
+            nn.Linear(hid_dim, 2)
         )
         self.logit_fc.apply(self.lxrt_encoder.model.init_bert_weights)
 
@@ -37,7 +37,7 @@ class HMModel(nn.Module):
         :return: (b, num_answer) The logit of each answers.
         """
         x = self.lxrt_encoder(sent, (feat, pos))
-        logit = self.logit_fc(x).squeeze(1)
+        logit = self.logit_fc(x)
 
         return logit
 

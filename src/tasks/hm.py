@@ -17,8 +17,8 @@ from tasks.hm_data import HMDataset, HMTorchDataset, HMEvaluator
 DataTuple = collections.namedtuple("DataTuple", 'dataset loader evaluator')
 
 
-def get_data_tuple(splits: str, bs:int, shuffle=False, drop_last=False) -> DataTuple:
-    dset = HMDataset(splits)
+def get_data_tuple(data_root: str, imgfeat_root: str, splits: str, bs:int, shuffle=False, drop_last=False) -> DataTuple:
+    dset = HMDataset(data_root, imgfeat_root, splits)
     tset = HMTorchDataset(dset)
     evaluator = HMEvaluator(dset)
     data_loader = DataLoader(
@@ -34,10 +34,12 @@ class HM:
     def __init__(self):
         # Datasets
         self.train_tuple = get_data_tuple(
+            args.data_root, args.imgfeat_root,
             args.train, bs=args.batch_size, shuffle=True, drop_last=False
         )
         if args.valid != "":
             self.valid_tuple = get_data_tuple(
+                args.data_root, args.imgfeat_root,
                 args.valid, bs=1024,
                 shuffle=False, drop_last=False
             )
@@ -57,7 +59,7 @@ class HM:
             self.model.lxrt_encoder.multi_gpu()
 
         # Loss and Optimizer
-        self.bce_loss = nn.BCEWithLogitsLoss()
+        self.mce_loss = nn.CrossEntropyLoss()
         if 'bert' in args.optim:
             batch_per_epoch = len(self.train_tuple.loader)
             t_total = int(batch_per_epoch * args.epochs)
@@ -87,16 +89,15 @@ class HM:
 
                 feats, boxes, target = feats.cuda(), boxes.cuda(), target.cuda()
                 logit = self.model(feats, boxes, text)
-                assert logit.dim() == target.dim() == 1
-                loss = self.bce_loss(logit, target.to(dtype=logit.dtype))
-                loss = loss * logit.size(0)
+                loss = self.mce_loss(logit, target) * logit.size(0)
 
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.model.parameters(), 5.)
                 self.optim.step()
 
-                probs = torch.sigmoid(logit)
-                proba, label = probs, (probs > .5).to(dtype=torch.int)
+                probs = F.softmax(logit, dim=1)
+                proba = probs[:, 1]
+                label = probs.argmax(dim=1)
                 for id, p, l in zip(img_id,
                                     proba.detach().cpu().numpy(),
                                     label.detach().cpu().numpy()):
@@ -138,8 +139,9 @@ class HM:
             with torch.no_grad():
                 feats, boxes = feats.cuda(), boxes.cuda()
                 logit = self.model(feats, boxes, text)
-                probs = torch.sigmoid(logit)
-                proba, label = probs, (probs > .5).to(dtype=torch.int)
+                probs = F.softmax(logit, dim=1)
+                proba = probs[:, 1]
+                label = probs.argmax(dim=1)
                 for id, p, l in zip(img_id, proba.cpu().numpy(), label.cpu().numpy()):
                     imgid2label[id] = (p, l)
         if dump is not None:
@@ -185,16 +187,18 @@ if __name__ == "__main__":
         args.fast = args.tiny = False       # Always loading all data in test
         if 'test' in args.test:
             hm.predict(
-                get_data_tuple(args.test, bs=1000,
-                               shuffle=False, drop_last=False),
+                get_data_tuple(
+                    args.data_root, args.imgfeat_root,
+                    args.test, bs=1000, shuffle=False, drop_last=False),
                 dump=os.path.join(args.output, 'test_predict.csv')
             )
         elif 'val' in args.test:    
             # Since part of valididation data are used in pre-training/fine-tuning,
             # only validate on the minival set.
             result = hm.evaluate(
-                get_data_tuple('minival', bs=950,
-                               shuffle=False, drop_last=False),
+                get_data_tuple(
+                    args.data_root, args.imgfeat_root,
+                    'minival', bs=950, shuffle=False, drop_last=False),
                 dump=os.path.join(args.output, 'minival_predict.json')
             )
             print(result)
