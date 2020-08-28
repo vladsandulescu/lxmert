@@ -20,9 +20,6 @@ from sklearn.metrics import roc_auc_score
 TINY_IMG_NUM = 512
 FAST_IMG_NUM = 5000
 
-# The path to data and image features.
-HM_DATA_ROOT = '../../data/'
-HM_IMGFEAT_ROOT = '../../data/imgfeat/'
 SPLIT2NAME = {
     'train': 'train',
     'dev': 'dev',
@@ -41,7 +38,9 @@ def parse_img_id(x):
 
 
 class HMDataset:
-    def __init__(self, splits: str):
+    def __init__(self, data_root: str, imgfeat_root: str, splits: str):
+        self.data_root = data_root
+        self.imgfeat_root = imgfeat_root
         self.name = splits
         self.splits = splits.split(',')
 
@@ -49,7 +48,7 @@ class HMDataset:
         self.data = []
         for split in self.splits:
             self.data.extend([json.loads(line, parse_int=parse_img_id)
-                              for line in open("%s%s.jsonl" % (HM_DATA_ROOT, split)).
+                              for line in open("%s%s.jsonl" % (self.data_root, split)).
                              read().splitlines()])
         print("Load %d data from split(s) %s." % (len(self.data), self.name))
 
@@ -86,7 +85,7 @@ class HMTorchDataset(Dataset):
         for split in dataset.splits:
             load_topk = 5000 if (split == 'minival' and topk is None) else topk
             img_data.extend(load_obj_tsv(
-                os.path.join(HM_IMGFEAT_ROOT, '%s_d2_36-36_batch.tsv' % (SPLIT2NAME[split])),
+                os.path.join(dataset.imgfeat_root, '%s_d2_36-36_batch.tsv' % (SPLIT2NAME[split])),
                 topk=load_topk))
 
         # Convert img list to dict
