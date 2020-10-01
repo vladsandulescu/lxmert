@@ -67,7 +67,7 @@ class HM:
             from lxrt.optimization import BertAdam
             self.optim = BertAdam(list(self.model.parameters()),
                                   lr=args.lr,
-                                  warmup=0.1,
+                                  warmup=0.025,
                                   t_total=t_total)
         else:
             self.optim = args.optimizer(self.model.parameters(), args.lr)
