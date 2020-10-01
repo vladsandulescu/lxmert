@@ -107,7 +107,9 @@ class HM:
             log_str = "\nEpoch %d: Train Acc - %0.4f\n" % (epoch, train_acc)
 
             if self.valid_tuple is not None:  # Do Validation
-                valid_acc_score, valid_auroc_score = self.evaluate(eval_tuple)
+                valid_acc_score, valid_auroc_score = self.evaluate(
+                    eval_tuple,
+                    dump=os.path.join(args.output, 'dev_predict_{}.csv'.format(epoch)))
                 if valid_auroc_score > best_valid:
                     best_valid = valid_auroc_score
                     self.save("BEST")
@@ -192,14 +194,12 @@ if __name__ == "__main__":
                     args.test, bs=1000, shuffle=False, drop_last=False),
                 dump=os.path.join(args.output, 'test_predict.csv')
             )
-        elif 'val' in args.test:    
-            # Since part of valididation data are used in pre-training/fine-tuning,
-            # only validate on the minival set.
+        elif 'dev' in args.test:
             result = hm.evaluate(
                 get_data_tuple(
                     args.data_root, args.imgfeat_root,
-                    'minival', bs=950, shuffle=False, drop_last=False),
-                dump=os.path.join(args.output, 'minival_predict.json')
+                    'dev', bs=500, shuffle=False, drop_last=False),
+                dump=os.path.join(args.output, 'dev_predict.csv')
             )
             print(result)
         else:
