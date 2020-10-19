@@ -17,6 +17,10 @@ from tasks.hm_data import HMDataset, HMTorchDataset, HMEvaluator
 DataTuple = collections.namedtuple("DataTuple", 'dataset loader evaluator')
 
 
+# import pydevd_pycharm
+# pydevd_pycharm.settrace('62.199.99.251', port=2222, stdoutToServer=True, stderrToServer=True)
+
+
 def get_data_tuple(data_root: str, imgfeat_root: str, splits: str, bs:int, shuffle=False, drop_last=False) -> DataTuple:
     dset = HMDataset(data_root, imgfeat_root, splits)
     tset = HMTorchDataset(dset)
@@ -191,14 +195,14 @@ if __name__ == "__main__":
             hm.predict(
                 get_data_tuple(
                     args.data_root, args.imgfeat_root,
-                    args.test, bs=1000, shuffle=False, drop_last=False),
+                    args.test, bs=2000, shuffle=False, drop_last=False),
                 dump=os.path.join(args.output, 'test_predict.csv')
             )
         elif 'dev' in args.test:
             result = hm.evaluate(
                 get_data_tuple(
                     args.data_root, args.imgfeat_root,
-                    'dev', bs=500, shuffle=False, drop_last=False),
+                    'dev', bs=640, shuffle=False, drop_last=False),
                 dump=os.path.join(args.output, 'dev_predict.csv')
             )
             print(result)

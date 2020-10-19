@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import Dataset
 
 from param import args
-from utils import load_obj_tsv
+from utils import load_obj_tsv_hm
 
 from sklearn.metrics import roc_auc_score
 
@@ -22,8 +22,8 @@ FAST_IMG_NUM = 5000
 
 SPLIT2NAME = {
     'train': 'train',
-    'dev': 'dev',
-    'test': 'test',
+    'dev': 'dev_unseen',
+    'test': 'test_unseen',
 }
 
 
@@ -48,7 +48,7 @@ class HMDataset:
         self.data = []
         for split in self.splits:
             self.data.extend([json.loads(line, parse_int=parse_img_id)
-                              for line in open("%s%s.jsonl" % (self.data_root, split)).
+                              for line in open("%s%s.jsonl" % (self.data_root, SPLIT2NAME[split])).
                              read().splitlines()])
         print("Load %d data from split(s) %s." % (len(self.data), self.name))
 
@@ -64,9 +64,10 @@ class HMDataset:
 
 """
 An example in obj36 tsv:
-FIELDNAMES = ["img_id", "img_h", "img_w", "objects_id", "objects_conf",
-              "attrs_id", "attrs_conf", "num_boxes", "boxes", "features"]
-FIELDNAMES would be keys in the dict returned by load_obj_tsv.
+TRAIN_VAL_FIELDNAMES = ["id", "img", "label", "text", "img_id", "img_h", "img_w", "objects_id", "objects_conf",
+                        "attrs_id", "attrs_conf", "num_boxes", "boxes", "features"]
+TEST_FIELDNAMES = ["id", "img", "text", "img_id", "img_h", "img_w", "objects_id", "objects_conf",
+                   "attrs_id", "attrs_conf", "num_boxes", "boxes", "features"]
 """
 class HMTorchDataset(Dataset):
     def __init__(self, dataset: HMDataset):
@@ -84,8 +85,9 @@ class HMTorchDataset(Dataset):
         img_data = []
         for split in dataset.splits:
             load_topk = 5000 if (split == 'minival' and topk is None) else topk
-            img_data.extend(load_obj_tsv(
-                os.path.join(dataset.imgfeat_root, '%s_d2_36-36_batch.tsv' % (SPLIT2NAME[split])),
+            img_data.extend(load_obj_tsv_hm(
+                os.path.join(dataset.data_root, 'data_%s_d2_36-36.tsv' % (SPLIT2NAME[split])),
+                split == 'test',
                 topk=load_topk))
 
         # Convert img list to dict
